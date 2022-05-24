@@ -7,5 +7,6 @@
     'epoch': 200,
     'pretrain_data_path': 'D:\python\code\lrl\data\data.csv',
     'pretrain_model_path': 'D:\python\code\lrl\model\pretrain_model.pth',
-    'final_model_path': 'D:\python\code\lrl\model\final_model.pth'
+    'final_model_path': 'D:\python\code\lrl\model\final_model.pth',
+    'save_model_path': 'D:\python\code\lrl\model\save_model.pth',
 }

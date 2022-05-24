@@ -49,6 +49,7 @@ EPS_START = 0.9
 EPS_END = 0.05
 EPS_DECAY = 200
 TARGET_UPDATE = 10
+SAVE_EVERY = 5
 steps_done = 0
 
 memory = ReplayMemory(10000)
@@ -187,6 +188,10 @@ for i_episode in tqdm(range(num_episodes)):
 
     if i_episode % TARGET_UPDATE == 0:
         target_net.load_state_dict(policy_net.state_dict())
+    if i_episode % SAVE_EVERY == 0:
+        save_path = config['save_model_path']
+        state = {'model_state_dict': target_net.state_dict(), 'optimizer_state_dict': optimizer.state_dict()}
+        torch.save(state, save_path)
 env.close()
 
 save_path = config['final_model_path']
