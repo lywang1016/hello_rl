@@ -133,11 +133,11 @@ def optimize_model():
     criterion = nn.SmoothL1Loss()
     loss = criterion(cur_values, next_values)
 
-    lr = config['lr_end'] + (config['lr_start'] - config['lr_end']) * \
-        math.exp(-1. * steps_done / config['lr_decay'])
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
-    # optimizer.zero_grad()
+    # lr = config['lr_end'] + (config['lr_start'] - config['lr_end']) * \
+    #     math.exp(-1. * steps_done / config['lr_decay'])
+    # for param_group in optimizer.param_groups:
+    #     param_group['lr'] = lr
+    optimizer.zero_grad()
     loss.backward()
     for param in policy_net.parameters():
         param.grad.data.clamp_(-1, 1)
