@@ -1,7 +1,7 @@
 {
     'game': 'CartPole-v1',
-    'lr_start': 0.00001,
-    'lr_end': 0.0000001,
+    'lr_start': 0.001,
+    'lr_end': 0.0001,
     'lr_decay': 2000,
     'batch_size': 128,
     'epoch': 200,

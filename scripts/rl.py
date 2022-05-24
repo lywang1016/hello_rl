@@ -12,11 +12,14 @@ import torch.nn as nn
 from reward import reward_function_1
 from network import DQN
 
-with open('D:\python\code\lrl\config.yaml') as f:
+with open('D:\python\code\hello_rl\scripts\config.yaml') as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 
 env = gym.make(config['game'])
-env._max_episode_steps = 1005
+env._max_episode_steps = 305
+obs = env.reset()
+n_states = len(obs)
+n_actions = env.action_space.n  # Get number of actions from gym action space
 
 # if gpu is to be used
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -43,44 +46,44 @@ class ReplayMemory(object):
 BATCH_SIZE = 256
 GAMMA = 0.999
 EPS_START = 0.9
-EPS_END = 0.1
-EPS_DECAY = 2000
+EPS_END = 0.05
+EPS_DECAY = 200
+TARGET_UPDATE = 10
 steps_done = 0
 
-memory = ReplayMemory(2000)
+memory = ReplayMemory(10000)
 
-q_net = DQN().to(device)  # Q*(s,a)
+policy_net = DQN().to(device)  # Q*(s,a)
+target_net = DQN().to(device)
+target_net.load_state_dict(policy_net.state_dict())
+target_net.eval()
+policy_net.train()
 
-n_actions = env.action_space.n  # Get number of actions from gym action space
-
-optimizer = torch.optim.Adam(q_net.parameters(),
-                             lr = config['lr_start'],
-                             betas = (0.9, 0.999),
-                             eps = 1e-08,
-                             weight_decay = 0.0001)
+optimizer = torch.optim.Adam(policy_net.parameters())
 
 def select_action(state):
     global steps_done
     global n_actions
-    global q_net
+    global policy_net
 
     sample = random.random()
     eps_threshold = EPS_END + (EPS_START - EPS_END) * \
         math.exp(-1. * steps_done / EPS_DECAY)
     steps_done += 1
-    if sample > eps_threshold:
+    if sample > eps_threshold:   
+        policy_net.eval()
         state_ = torch.from_numpy(state).to(device)
         state_ = state_.view(1, state_.shape[0])    #shape:[1, 4]
-        q_net = q_net.eval()
         queue = []
         heapify(queue)
         for i in range(n_actions):
             a = torch.tensor(i).to(device)
             a_ = a.float().view(1, 1)
-            value = q_net(state_, a_)
+            value = policy_net(state_, a_)
             value = value.cpu().detach().numpy()[0][0]
             heappush(queue, (-value, i))
         value, a = heappop(queue)
+        policy_net.train()
         return a
     else:
         return np.random.randint(n_actions)
@@ -88,10 +91,10 @@ def select_action(state):
 def optimize_model():
     global steps_done
     global n_actions
-    global q_net
+    global policy_net
 
     if len(memory) < BATCH_SIZE:
-        return 1
+        return 5
 
     transitions = memory.sample(BATCH_SIZE)
     batch = Transition(*zip(*transitions))
@@ -110,7 +113,6 @@ def optimize_model():
         action_batch = torch.cat((action_batch, action.view(1, 1)), dim=0)
         reward_batch = torch.cat((reward_batch, reward.view(1, 1)), dim=0)
 
-    q_net = q_net.eval()
     next_values = torch.zeros((BATCH_SIZE,1), device=device)
     for i in range(BATCH_SIZE):
         next_state = torch.from_numpy(batch.next_state[i]).to(device)
@@ -119,15 +121,14 @@ def optimize_model():
         for j in range(n_actions):
             a = torch.tensor(j).to(device)
             a = a.float().view(1, 1)
-            value = q_net(next_state, a)
+            value = target_net(next_state, a)
             value = value.cpu().detach().numpy()[0][0]
             val_list.append(value)
         max_val = max(val_list)
         next_values[i][0] = torch.tensor(max_val).to(device)
     next_values = (next_values * GAMMA) + reward_batch
 
-    q_net = q_net.train()
-    cur_values = q_net(state_batch, action_batch)
+    cur_values = policy_net(state_batch, action_batch)
 
     criterion = nn.SmoothL1Loss()
     loss = criterion(cur_values, next_values)
@@ -136,16 +137,16 @@ def optimize_model():
         math.exp(-1. * steps_done / config['lr_decay'])
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
-    optimizer.zero_grad()
+    # optimizer.zero_grad()
     loss.backward()
-    for param in q_net.parameters():
+    for param in policy_net.parameters():
         param.grad.data.clamp_(-1, 1)
     optimizer.step()
     
     return float(loss.cpu().detach())
 
 # Training
-num_episodes = 200
+num_episodes = 100
 duration_history = []
 loss_history = []
 mx_history = []
@@ -171,21 +172,25 @@ for i_episode in tqdm(range(num_episodes)):
         loss = optimize_model()
         total_loss += loss
         obs = new_obs
-        if life_cnt > 1000:
+        if life_cnt > 300:
             good_cnt += 1
             break
-    if life_cnt < 1000:
+    if life_cnt < 300:
         good_cnt = 0
+
     print(' Last episode life time is: ' + str(life_cnt))
     duration_history.append(life_cnt)
     print('Last episode loss is: ' + str(total_loss/life_cnt))
     loss_history.append(total_loss/life_cnt)
     print('Last episode max x is: ' + str(max_x))
     mx_history.append(max_x)
+
+    if i_episode % TARGET_UPDATE == 0:
+        target_net.load_state_dict(policy_net.state_dict())
 env.close()
 
 save_path = config['final_model_path']
-state = {'model_state_dict': q_net.state_dict(), 'optimizer_state_dict': optimizer.state_dict()}
+state = {'model_state_dict': policy_net.state_dict(), 'optimizer_state_dict': optimizer.state_dict()}
 torch.save(state, save_path)
 
 episode = np.linspace(start=1, stop=num_episodes, num=num_episodes)
