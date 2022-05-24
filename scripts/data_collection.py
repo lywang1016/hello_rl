@@ -4,7 +4,7 @@ import yaml
 from tqdm import tqdm
 from reward import reward_function_1
 
-with open('D:\python\code\lrl\config.yaml') as f:
+with open('D:\python\code\hello_rl\scripts\config.yaml') as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 
 f = open(config['pretrain_data_path'], 'w', newline='')
