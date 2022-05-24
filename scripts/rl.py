@@ -12,7 +12,7 @@ import torch.nn as nn
 from reward import reward_function_1
 from network import DQN
 
-with open('D:\python\code\lrl\config.yaml') as f:
+with open('D:\python\code\hello_rl\scripts\config.yaml') as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 
 env = gym.make(config['game'])
@@ -43,8 +43,9 @@ class ReplayMemory(object):
 BATCH_SIZE = 256
 GAMMA = 0.999
 EPS_START = 0.9
-EPS_END = 0.1
-EPS_DECAY = 2000
+EPS_END = 0.05
+EPS_DECAY = 200
+SAVE_EVERY = 5
 steps_done = 0
 
 memory = ReplayMemory(2000)
@@ -53,11 +54,7 @@ q_net = DQN().to(device)  # Q*(s,a)
 
 n_actions = env.action_space.n  # Get number of actions from gym action space
 
-optimizer = torch.optim.Adam(q_net.parameters(),
-                             lr = config['lr_start'],
-                             betas = (0.9, 0.999),
-                             eps = 1e-08,
-                             weight_decay = 0.0001)
+optimizer = torch.optim.Adam(q_net.parameters())
 
 def select_action(state):
     global steps_done
@@ -132,10 +129,6 @@ def optimize_model():
     criterion = nn.SmoothL1Loss()
     loss = criterion(cur_values, next_values)
 
-    lr = config['lr_end'] + (config['lr_start'] - config['lr_end']) * \
-        math.exp(-1. * steps_done / config['lr_decay'])
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
     optimizer.zero_grad()
     loss.backward()
     for param in q_net.parameters():
@@ -182,6 +175,10 @@ for i_episode in tqdm(range(num_episodes)):
     loss_history.append(total_loss/life_cnt)
     print('Last episode max x is: ' + str(max_x))
     mx_history.append(max_x)
+    if i_episode % SAVE_EVERY == 0:
+        save_path = config['save_model_path']
+        state = {'model_state_dict': q_net.state_dict(), 'optimizer_state_dict': optimizer.state_dict()}
+        torch.save(state, save_path)
 env.close()
 
 save_path = config['final_model_path']
