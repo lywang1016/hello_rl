@@ -95,7 +95,7 @@ def optimize_model():
     global policy_net
 
     if len(memory) < BATCH_SIZE:
-        return 5
+        return 2
 
     transitions = memory.sample(BATCH_SIZE)
     batch = Transition(*zip(*transitions))

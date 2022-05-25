@@ -7,7 +7,7 @@ def reward_function_1(x, angle):
     elif a < 0.18:
         reward = 0.1
     else:
-        reward = -1
+        reward = -2
     x_ = abs(x)
     if x_ < 0.1:
         reward += 0.2
