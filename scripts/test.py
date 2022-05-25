@@ -37,7 +37,7 @@ def select_action(state):
     return a
 
 duration_history = []
-num_episodes = 2
+num_episodes = 20
 for i_episode in tqdm(range(num_episodes)):
     obs = env.reset()
     done = False 
