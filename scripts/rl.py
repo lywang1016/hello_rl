@@ -16,7 +16,7 @@ with open('D:\python\code\hello_rl\scripts\config.yaml') as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 
 env = gym.make(config['game'])
-env._max_episode_steps = 305
+env._max_episode_steps = 1005
 obs = env.reset()
 n_states = len(obs)
 n_actions = env.action_space.n  # Get number of actions from gym action space
@@ -134,10 +134,6 @@ def optimize_model():
     criterion = nn.SmoothL1Loss()
     loss = criterion(cur_values, next_values)
 
-    # lr = config['lr_end'] + (config['lr_start'] - config['lr_end']) * \
-    #     math.exp(-1. * steps_done / config['lr_decay'])
-    # for param_group in optimizer.param_groups:
-    #     param_group['lr'] = lr
     optimizer.zero_grad()
     loss.backward()
     for param in policy_net.parameters():
@@ -147,7 +143,7 @@ def optimize_model():
     return float(loss.cpu().detach())
 
 # Training
-num_episodes = 100
+num_episodes = 200
 duration_history = []
 loss_history = []
 mx_history = []
@@ -173,10 +169,10 @@ for i_episode in tqdm(range(num_episodes)):
         loss = optimize_model()
         total_loss += loss
         obs = new_obs
-        if life_cnt > 300:
+        if life_cnt > 1000:
             good_cnt += 1
             break
-    if life_cnt < 300:
+    if life_cnt < 1000:
         good_cnt = 0
 
     print(' Last episode life time is: ' + str(life_cnt))
