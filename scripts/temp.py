@@ -3,6 +3,11 @@ import yaml
 import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+import os
+
+cwd = os.getcwd()
+with open(cwd+'/config.yaml') as f:
+    config = yaml.load(f, Loader=yaml.FullLoader)
 
 EPS_START = 0.9
 EPS_END = 0.05
@@ -14,10 +19,7 @@ for i in tqdm(range(max_iter)):
     eps_threshold = EPS_END + (EPS_START - EPS_END) * \
         math.exp(-1. * i / EPS_DECAY)
     threshold_his.append(eps_threshold)
-
-
-with open('D:\python\code\hello_rl\scripts\config.yaml') as f:
-    config = yaml.load(f, Loader=yaml.FullLoader)
+    
 lr_his = []
 for i in tqdm(range(max_iter)):
     lr = config['lr_end'] + (config['lr_start'] - config['lr_end']) * \

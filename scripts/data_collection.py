@@ -3,8 +3,10 @@ import csv
 import yaml
 from tqdm import tqdm
 from reward import reward_function_1
+import os
 
-with open('D:\python\code\hello_rl\scripts\config.yaml') as f:
+cwd = os.getcwd()
+with open(cwd+'/config.yaml') as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 
 f = open(config['pretrain_data_path'], 'w', newline='')

@@ -4,10 +4,12 @@ from tqdm import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
+import os
 from heapq import heapify, heappop, heappush
 from network import DQN
 
-with open('D:\python\code\hello_rl\scripts\config.yaml') as f:
+cwd = os.getcwd()
+with open(cwd+'/config.yaml') as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 
 env = gym.make(config['game'])
