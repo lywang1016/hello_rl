@@ -1,5 +1,6 @@
 import gym
 import math
+import csv
 import yaml
 import random
 import numpy as np
@@ -14,6 +15,9 @@ from network import DQN
 
 with open('D:\python\code\hello_rl\scripts\config.yaml') as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
+
+f = open(config['pretrain_data_path'], 'w', newline='')
+writer = csv.writer(f)
 
 env = gym.make(config['game'])
 env._max_episode_steps = 1005
@@ -48,7 +52,7 @@ GAMMA = 0.999
 EPS_START = 0.9
 EPS_END = 0.05
 EPS_DECAY = 200
-TARGET_UPDATE = 10
+TARGET_UPDATE = 1
 SAVE_EVERY = 5
 steps_done = 0
 
@@ -168,6 +172,16 @@ for i_episode in tqdm(range(num_episodes)):
         memory.push(obs, action, new_obs, reward)
         loss = optimize_model()
         total_loss += loss
+
+        row = []
+        for state in obs:
+            row.append(state)
+        row.append(action)
+        row.append(reward)
+        for state in new_obs:
+            row.append(state)
+        writer.writerow(row)
+
         obs = new_obs
         if life_cnt > 1000:
             good_cnt += 1
@@ -189,6 +203,7 @@ for i_episode in tqdm(range(num_episodes)):
         state = {'model_state_dict': target_net.state_dict(), 'optimizer_state_dict': optimizer.state_dict()}
         torch.save(state, save_path)
 env.close()
+f.close()
 
 save_path = config['final_model_path']
 state = {'model_state_dict': policy_net.state_dict(), 'optimizer_state_dict': optimizer.state_dict()}
