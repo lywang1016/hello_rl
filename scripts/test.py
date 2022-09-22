@@ -7,7 +7,7 @@ import torch
 from heapq import heapify, heappop, heappush
 from network import DQN
 
-with open('D:\python\code\hello_rl\scripts\config.yaml') as f:
+with open('D:\workspace\hello_rl\scripts\config.yaml') as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 
 env = gym.make(config['game'])
@@ -39,12 +39,14 @@ def select_action(state):
 duration_history = []
 num_episodes = 2
 for i_episode in tqdm(range(num_episodes)):
-    obs = env.reset()
+    obs, info = env.reset()
     done = False 
     life_cnt = 0
     while not done:
         action = select_action(obs)
-        obs, reward, done, info = env.step(action)
+        # obs, reward, done, info = env.step(action)
+        obs, reward, done, truncated, info = env.step(action)
+        
         env.render()
         life_cnt += 1
     duration_history.append(life_cnt)

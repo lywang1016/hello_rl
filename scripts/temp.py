@@ -16,7 +16,7 @@ for i in tqdm(range(max_iter)):
     threshold_his.append(eps_threshold)
 
 
-with open('D:\python\code\hello_rl\scripts\config.yaml') as f:
+with open('D:\workspace\hello_rl\scripts\config.yaml') as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 lr_his = []
 for i in tqdm(range(max_iter)):

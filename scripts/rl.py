@@ -12,7 +12,7 @@ import torch.nn as nn
 from reward import reward_function_1
 from network import DQN
 
-with open('D:\python\code\hello_rl\scripts\config.yaml') as f:
+with open('D:\workspace\hello_rl\scripts\config.yaml') as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 
 env = gym.make(config['game'])
@@ -147,14 +147,15 @@ for i_episode in tqdm(range(num_episodes)):
     if good_cnt>20:
         num_episodes = i_episode
         break
-    obs = env.reset()
+    obs, info = env.reset()
     done = False 
     life_cnt = 0
     total_loss = 0  
     max_x = 0
     while not done:
         action = select_action(obs)
-        new_obs, reward, done, info = env.step(action)
+        # new_obs, reward, done, info = env.step(action)
+        new_obs, reward, done, truncated, info = env.step(action)
         if abs(new_obs[0]) > max_x:
             max_x = abs(new_obs[0])
         reward = reward_function_1(new_obs[0], new_obs[2])

@@ -4,7 +4,7 @@ import yaml
 from tqdm import tqdm
 from reward import reward_function_1
 
-with open('D:\python\code\hello_rl\scripts\config.yaml') as f:
+with open('D:\workspace\hello_rl\scripts\config.yaml') as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 
 f = open(config['pretrain_data_path'], 'w', newline='')
@@ -13,11 +13,12 @@ env = gym.make(config['game'])
 
 num_episodes = 300
 for i_episode in tqdm(range(num_episodes)):
-    obs = env.reset()
+    obs, info = env.reset()
     done = False 
     while not done:
         random_action = env.action_space.sample()
-        new_obs, reward, done, info = env.step(random_action)
+        # new_obs, reward, done, info = env.step(random_action)
+        new_obs, reward, done, truncated, info = env.step(random_action)
         reward = reward_function_1(new_obs[1], new_obs[2])
         env.render()
 
