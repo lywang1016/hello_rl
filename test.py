@@ -10,7 +10,7 @@ from network import DQN
 with open('config.yaml') as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 
-env = gym.make(config['game'])
+env = gym.make(config['game'], render_mode="human")
 env._max_episode_steps = 10000
 n_actions = env.action_space.n  # Get number of actions from gym action space
 
