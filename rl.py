@@ -12,7 +12,7 @@ import torch.nn as nn
 from reward import reward_function_1
 from network import DQN
 
-with open('D:\workspace\hello_rl\scripts\config.yaml') as f:
+with open('config.yaml') as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 
 env = gym.make(config['game'])
