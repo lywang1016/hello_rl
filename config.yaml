@@ -1,9 +1,15 @@
 {
     'game': 'CartPole-v1',
-    'lr_start': 0.00001,
-    'lr_end': 0.0000001,
-    'lr_decay': 2000,
+    'gamma': 0.999,
     'batch_size': 128,
+    'eps_start': 0.9,
+    'eps_end': 0.05,
+    'eps_decay': 200,
+    'save_every': 5,
+
+    'lr_start': '1e-4',
+    'lr_end': '1e-6',
+    'lr_decay': 2000,
     'epoch': 200,
     'pretrain_data_path': 'data\data_save\data.csv',
     'pretrain_model_path': 'data\model\pretrain_model.pth',
