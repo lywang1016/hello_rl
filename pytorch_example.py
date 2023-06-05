@@ -227,3 +227,9 @@ plot_durations(show_result=True)
 plt.ioff()
 plt.show()
 
+# import yaml
+# with open('config.yaml') as f:
+#     config = yaml.load(f, Loader=yaml.FullLoader)
+#     save_path = config['final_model_path']
+#     state = {'model_state_dict': policy_net.state_dict(), 'optimizer_state_dict': optimizer.state_dict()}
+#     torch.save(state, save_path)
