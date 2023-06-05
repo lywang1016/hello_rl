@@ -16,7 +16,8 @@ n_actions = env.action_space.n  # Get number of actions from gym action space
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 q_net = DQN().to(device)  # Q*(s,a)
-checkpoint = torch.load(config['final_model_path'])
+# checkpoint = torch.load(config['final_model_path'])
+checkpoint = torch.load(config['save_model_path'])
 q_net.load_state_dict(checkpoint['model_state_dict'])
 q_net = q_net.eval()
 

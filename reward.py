@@ -18,3 +18,12 @@ def reward_function_1(x, angle):
     else:
         reward -= 0.8
     return reward
+
+def reward_function_2(terminate):
+    if terminate:
+        return -100
+    else:
+        return 0
+    
+def reward_function_3():
+        return 1

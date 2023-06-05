@@ -13,7 +13,7 @@ from heapq import heapify, heappop, heappush
 import torch
 import torch.nn as nn
 from network import DQN
-from reward import reward_function_1
+from reward import reward_function_1, reward_function_2, reward_function_3
 
 # set up matplotlib
 is_ipython = 'inline' in matplotlib.get_backend()
@@ -81,6 +81,7 @@ def select_action(state):
             queue = []
             heapify(queue)
             policy_net = policy_net.eval()
+            # policy_net.eval()
             for i in range(n_actions):
                 a = torch.tensor(i).to(device)
                 a_ = a.float().view(1, 1)
@@ -92,31 +93,31 @@ def select_action(state):
     else:
         return np.random.randint(n_actions)
 
-episode_durations = []
-def plot_durations(show_result=False):
-    plt.figure(1)
-    durations_t = torch.tensor(episode_durations, dtype=torch.float)
-    if show_result:
-        plt.title('Result')
-    else:
-        plt.clf()
-        plt.title('Training...')
-    plt.xlabel('Episode')
-    plt.ylabel('Duration')
-    plt.plot(durations_t.numpy())
-    # Take 100 episode averages and plot them too
-    if len(durations_t) >= 100:
-        means = durations_t.unfold(0, 100, 1).mean(1).view(-1)
-        means = torch.cat((torch.zeros(99), means))
-        plt.plot(means.numpy())
+# episode_durations = []
+# def plot_durations(show_result=False):
+#     plt.figure(1)
+#     durations_t = torch.tensor(episode_durations, dtype=torch.float)
+#     if show_result:
+#         plt.title('Result')
+#     else:
+#         plt.clf()
+#         plt.title('Training...')
+#     plt.xlabel('Episode')
+#     plt.ylabel('Duration')
+#     plt.plot(durations_t.numpy())
+#     # Take 100 episode averages and plot them too
+#     if len(durations_t) >= 100:
+#         means = durations_t.unfold(0, 100, 1).mean(1).view(-1)
+#         means = torch.cat((torch.zeros(99), means))
+#         plt.plot(means.numpy())
 
-    plt.pause(0.001)  # pause a bit so that plots are updated
-    if is_ipython:
-        if not show_result:
-            display.display(plt.gcf())
-            display.clear_output(wait=True)
-        else:
-            display.display(plt.gcf())
+#     plt.pause(0.001)  # pause a bit so that plots are updated
+#     if is_ipython:
+#         if not show_result:
+#             display.display(plt.gcf())
+#             display.clear_output(wait=True)
+#         else:
+#             display.display(plt.gcf())
 
 def optimize_model():
     global n_actions
@@ -124,7 +125,7 @@ def optimize_model():
     global target_net
 
     if len(memory) < BATCH_SIZE:
-        return 1
+        return 10
 
     transitions = memory.sample(BATCH_SIZE)
     batch = Transition(*zip(*transitions))
@@ -144,11 +145,12 @@ def optimize_model():
         reward_batch = torch.cat((reward_batch, reward.view(1, 1)), dim=0)
 
     next_values = torch.zeros((BATCH_SIZE,1), device=device)
+    target_net = target_net.eval()
+    # target_net.eval()
     for i in range(BATCH_SIZE):
         next_state = torch.from_numpy(batch.next_state[i]).to(device)
         next_state = next_state.view(1, next_state.shape[0])
         val_list = []
-        target_net = target_net.eval()
         for j in range(n_actions):
             a = torch.tensor(j).to(device)
             a = a.float().view(1, 1)
@@ -160,6 +162,7 @@ def optimize_model():
     next_values = (next_values * GAMMA) + reward_batch
 
     policy_net = policy_net.train()
+    # policy_net.train()
     cur_values = policy_net(state_batch, action_batch)
 
     criterion = nn.SmoothL1Loss()
@@ -167,7 +170,9 @@ def optimize_model():
 
     optimizer.zero_grad()
     loss.backward()
-    torch.nn.utils.clip_grad_value_(policy_net.parameters(), 100)
+    # torch.nn.utils.clip_grad_value_(policy_net.parameters(), 100)
+    for param in policy_net.parameters():
+        param.grad.data.clamp_(-100, 100)
     optimizer.step()
     
     return float(loss.cpu().detach())
@@ -192,7 +197,9 @@ for i_episode in tqdm(range(num_episodes)):
         new_obs, reward, done, truncated, info = env.step(action)
         if abs(new_obs[0]) > max_x:
             max_x = abs(new_obs[0])
-        reward = reward_function_1(new_obs[0], new_obs[2])
+        # reward = reward_function_1(new_obs[0], new_obs[2])
+        # reward = reward_function_2(done)
+        reward = reward_function_3()
         env.render()
         life_cnt += 1
         memory.push(obs, action, reward, new_obs)
