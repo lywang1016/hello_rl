@@ -11,8 +11,8 @@
     'lr_end': '1e-6',
     'lr_decay': 2000,
     'epoch': 200,
-    'pretrain_data_path': 'data\data_save\data.csv',
-    'pretrain_model_path': 'data\model\pretrain_model.pth',
-    'final_model_path': 'data\model\final_model.pth',
-    'save_model_path': 'data\model\save_model.pth'
+    'pretrain_data_path': 'data\data.csv',
+    'pretrain_model_path': 'model\pretrain_model.pth',
+    'final_model_path': 'model\final_model.pth',
+    'save_model_path': 'model\save_model.pth'
 }
