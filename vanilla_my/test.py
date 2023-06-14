@@ -1,41 +1,18 @@
 import gym
-import yaml
-from tqdm import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
-import torch
-from heapq import heapify, heappop, heappush
-from network import DQN
+from tqdm import tqdm
+from network import ActorNetwork
+import torch as T
 
-with open('config.yaml') as f:
-    config = yaml.load(f, Loader=yaml.FullLoader)
-
-env = gym.make(config['game'], render_mode="human")
+env = gym.make('CartPole-v1', render_mode="human")
 env._max_episode_steps = 10000
-n_actions = env.action_space.n  # Get number of actions from gym action space
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-q_net = DQN().to(device)  # Q*(s,a)
-# checkpoint = torch.load(config['final_model_path'])
-checkpoint = torch.load(config['save_model_path'])
-q_net.load_state_dict(checkpoint['model_state_dict'])
-q_net = q_net.eval()
-
-def select_action(state):
-    global q_net
-
-    state_ = torch.from_numpy(state).to(device)
-    state_ = state_.view(1, state_.shape[0])    #shape:[1, 4]
-    queue = []
-    heapify(queue)
-    for i in range(n_actions):
-        a = torch.tensor(i).to(device)
-        a_ = a.float().view(1, 1)
-        value = q_net(state_, a_)
-        value = value.cpu().detach().numpy()[0][0]
-        heappush(queue, (-value, i))
-    value, a = heappop(queue)
-    return a
+n_actions = env.action_space.n
+input_dims=env.observation_space.shape
+alpha = 0.0003
+actor = ActorNetwork(n_actions, input_dims, alpha)
+actor.load_checkpoint()
 
 duration_history = []
 num_episodes = 2
@@ -44,8 +21,10 @@ for i_episode in tqdm(range(num_episodes)):
     done = False 
     life_cnt = 0
     while not done:
-        action = select_action(obs)
-        # obs, reward, done, info = env.step(action)
+        state = T.tensor(obs, dtype=T.float).to(actor.device)
+        dist = actor(state)
+        action = dist.sample()
+        action = T.squeeze(action).item()
         obs, reward, done, truncated, info = env.step(action)
         
         env.render()
