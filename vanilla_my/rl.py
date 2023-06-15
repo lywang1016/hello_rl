@@ -13,7 +13,8 @@ from heapq import heapify, heappop, heappush
 import torch as T
 import torch.nn as nn
 from network import ActorNetwork, CriticNetwork
-from memory import Trajectory
+from memory import Trajectory, CriticMemory
+from loss import MyLoss
 
 with open('config.yaml') as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
@@ -32,9 +33,24 @@ IMPROVEMENT_EPOCH = 10
 MEMORY_SIZE = 16384
 BATCH_SIZE = 64
 BOOTSTRAPPING = 4
+FAKESTATE = np.array([c for c in range(input_dims[0])])
 
 actor = ActorNetwork(n_actions, input_dims, LR)
 critic = CriticNetwork(input_dims, LR)
+critic_memory = CriticMemory(BATCH_SIZE)
+criterion = MyLoss().to(critic.device)
+
+def critic_memory_value_update():
+    length = len(critic_memory.state_bootstrapping)
+    for i in range(length):
+        state = critic_memory.state_bootstrapping[i]
+        if not (state == FAKESTATE).all():
+            state = T.tensor(state, dtype=T.float).to(critic.device)
+            value = critic(state)
+            value = T.squeeze(value).item()
+            critic_memory.value_bootstrapping[i] = value
+        else:
+            critic_memory.value_bootstrapping[i] = 0
 
 def select_action(observation):
     state = T.tensor(observation, dtype=T.float).to(actor.device)
@@ -47,6 +63,7 @@ for i in range(GPI_LOOP):
 
     print('Generate trajectories...')
     steps = 0
+    episode_num = 0
     trajectories = []
     while steps < MEMORY_SIZE:
         observation, info = env.reset()
@@ -56,15 +73,55 @@ for i in range(GPI_LOOP):
             action =  select_action(observation)
             observation_, reward, done, truncated, info  = env.step(action)
             if done:
-                observation_ = np.array([])
+                observation_ = FAKESTATE
             trajectory.remember(observation, action, reward, observation_)
             observation = observation_
         steps += trajectory.length
+        episode_num += 1
         trajectories.append(trajectory)
+    average_episode_step = steps / float(episode_num)
+    print("\tAverage episode step count: %.1f" % average_episode_step)
 
     print('Evaluation...')
+    critic_memory.clear_memory()
+    for trajectory in trajectories:
+        for i in range(trajectory.length):
+            reward_sum = 0
+            value = 0
+            state_bootstrapping = FAKESTATE
+            for j in range(BOOTSTRAPPING):
+                if i+j < trajectory.length:
+                    reward_sum += math.pow(GAMMA, j) * trajectory.reward[i+j]
+            if i+BOOTSTRAPPING < trajectory.length:
+                state_bootstrapping = trajectory.states[i+BOOTSTRAPPING]
+                if not (state_bootstrapping == FAKESTATE).all():
+                    state = T.tensor(state_bootstrapping, dtype=T.float).to(critic.device)
+                    value = critic(state)
+                    value = T.squeeze(value).item()
+            critic_memory.store_memory(trajectory.states[i], state_bootstrapping, reward_sum, value)
+    # loss_his = []
+    for epoch in tqdm(range(EVALUATION_EPOCH)):
+        state_arr, state_bs_arr, reward_arr, vals_arr, batches = critic_memory.generate_batches()
+        epoch_ave_loss = 0
+        for batch in batches:
+            states = T.tensor(state_arr[batch], dtype=T.float).to(critic.device)
+            state_bs = T.tensor(state_bs_arr[batch], dtype=T.float).to(critic.device)
+            rewards_sum = T.tensor(reward_arr[batch], dtype=T.float).to(critic.device)
+            value_bootstrapping = T.tensor(vals_arr[batch], dtype=T.float).to(critic.device)
+            g_t = rewards_sum + math.pow(GAMMA, BOOTSTRAPPING) * value_bootstrapping
+            critic_value = critic(states)
+            critic_value = T.squeeze(critic_value)
+            critic_loss = criterion(g_t, critic_value)
             
+            # epoch_ave_loss += float(critic_loss)
 
+            critic.optimizer.zero_grad()
+            critic_loss.backward()
+            critic.optimizer.step()
+        # critic_memory_value_update()
+        # epoch_ave_loss /= len(batches)
+        # loss_his.append(epoch_ave_loss)
+    # print(loss_his)
 
 
 
