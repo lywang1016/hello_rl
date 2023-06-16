@@ -57,7 +57,7 @@ for i in range(GPI_LOOP):
             observation_, reward, done, truncated, info  = env.step(action)
             life_time += 1
             score += reward
-            if life_time > 3*MEMORY_SIZE:
+            if life_time > 30000:
                 success_flag = True
                 break
             if done:
