@@ -6,6 +6,7 @@ import torch as T
 from network import ActorNetwork, CriticNetwork
 from memory import Trajectory, Memory
 from loss import MyLoss
+from utils import plot_learning_curve
 
 with open('config.yaml') as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
@@ -30,6 +31,7 @@ actor = ActorNetwork(n_actions, input_dims, LR)
 critic = CriticNetwork(input_dims, LR)
 memory = Memory(BATCH_SIZE)
 criterion = MyLoss().to(critic.device)
+score_history = []
 
 def select_action(observation):
     state = T.tensor(observation, dtype=T.float).to(actor.device)
@@ -51,10 +53,12 @@ for i in range(GPI_LOOP):
         trajectory = Trajectory()
         done = False
         life_time = 0
+        score = 0
         while not done:
             action, probs_old =  select_action(observation)
             observation_, reward, done, truncated, info  = env.step(action)
             life_time += 1
+            score += reward
             if life_time > 3*MEMORY_SIZE:
                 success_flag = True
                 break
@@ -62,6 +66,7 @@ for i in range(GPI_LOOP):
                 observation_ = FAKESTATE
             trajectory.remember(observation, action, reward, observation_, probs_old)
             observation = observation_
+        score_history.append(score)
         steps += trajectory.length
         episode_num += 1
         trajectories.append(trajectory)
@@ -145,3 +150,6 @@ for i in range(GPI_LOOP):
 
     actor.save_checkpoint()
     critic.save_checkpoint()
+
+x = [i+1 for i in range(len(score_history))]
+plot_learning_curve(x, score_history, config['figure_path'])

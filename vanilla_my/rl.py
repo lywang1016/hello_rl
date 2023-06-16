@@ -1,5 +1,4 @@
 import gymnasium as gym
-import math
 import yaml
 import numpy as np
 from tqdm import tqdm
@@ -7,6 +6,7 @@ import torch as T
 from network import ActorNetwork, CriticNetwork
 from memory import Trajectory, VanillaMemory
 from loss import MyLoss
+from utils import plot_learning_curve
 
 with open('config.yaml') as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
@@ -30,6 +30,7 @@ actor = ActorNetwork(n_actions, input_dims, LR)
 critic = CriticNetwork(input_dims, LR)
 vanilla_memory = VanillaMemory(BATCH_SIZE)
 criterion = MyLoss().to(critic.device)
+score_history = []
 
 def select_action(observation):
     state = T.tensor(observation, dtype=T.float).to(actor.device)
@@ -44,26 +45,33 @@ for i in range(GPI_LOOP):
     steps = 0
     episode_num = 0
     trajectories = []
+    success_flag = False
     while steps < MEMORY_SIZE:
         observation, info = env.reset()
         trajectory = Trajectory()
         done = False
+        life_time = 0
+        score = 0
         while not done:
             action =  select_action(observation)
             observation_, reward, done, truncated, info  = env.step(action)
+            life_time += 1
+            score += reward
+            if life_time > 3*MEMORY_SIZE:
+                success_flag = True
+                break
             if done:
                 observation_ = FAKESTATE
             trajectory.remember(observation, action, reward, observation_)
             observation = observation_
+        score_history.append(score)
         steps += trajectory.length
         episode_num += 1
         trajectories.append(trajectory)
+    if success_flag:
+        break
     average_episode_step = steps / float(episode_num)
     print("\tAverage episode step count: %.1f" % average_episode_step)
-    if average_episode_step > MEMORY_SIZE:
-        actor.save_checkpoint()
-        critic.save_checkpoint()
-        break
 
     print('Generate memory...')
     vanilla_memory.clear_memory()
@@ -71,16 +79,18 @@ for i in range(GPI_LOOP):
         for i in range(trajectory.length):
             reward_sum = 0
             value_bootstrapping = 0
+            discount = 1 / GAMMA
             for j in range(BOOTSTRAPPING):
+                discount *= GAMMA
                 if i+j < trajectory.length:
-                    reward_sum += math.pow(GAMMA, j) * trajectory.reward[i+j]
+                    reward_sum += discount * trajectory.reward[i+j]
             if i+BOOTSTRAPPING < trajectory.length:
                 state_bootstrapping = trajectory.states[i+BOOTSTRAPPING]
                 if not (state_bootstrapping == FAKESTATE).all():
                     state = T.tensor(state_bootstrapping, dtype=T.float).to(critic.device)
                     value_bootstrapping = critic(state)
                     value_bootstrapping = T.squeeze(value_bootstrapping).item()
-            returns = reward_sum + math.pow(GAMMA, BOOTSTRAPPING) * value_bootstrapping
+            returns = reward_sum + discount * GAMMA * value_bootstrapping
             vanilla_memory.store_memory(trajectory.states[i], trajectory.action[i], returns)
 
     print('Evaluation...')
@@ -134,3 +144,6 @@ for i in range(GPI_LOOP):
 
     actor.save_checkpoint()
     critic.save_checkpoint()
+
+x = [i+1 for i in range(len(score_history))]
+plot_learning_curve(x, score_history, config['figure_path'])
