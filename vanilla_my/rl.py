@@ -18,7 +18,7 @@ input_dims = env.observation_space.shape
 
 GAMMA = 0.99
 LR = 1e-4
-GPI_LOOP = 20
+GPI_LOOP = 50
 EVALUATION_EPOCH = 1
 IMPROVEMENT_EPOCH = 1
 MEMORY_SIZE = 4096
