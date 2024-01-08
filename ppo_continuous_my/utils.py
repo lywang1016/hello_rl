@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 def Action_adapter(a,max_action):
 	#from [0,1] to [-max,max]
-	return  [2*(a-0.5)*max_action]
+	return  2*(a-0.5)*max_action
 
 def plot_learning_curve(x, scores, figure_file):
     running_avg = np.zeros(len(scores))

@@ -1,133 +1,100 @@
 import gymnasium as gym
 import yaml
+import argparse
+import os
 from tqdm import tqdm
 import torch as T
 import torch.nn as nn
-from network import ActorNetwork, CriticNetwork
-from memory import Trajectory, Memory
+from agent import Agent
 from utils import plot_learning_curve, Action_adapter
+
+'''Hyperparameter Setting'''
+parser = argparse.ArgumentParser()
+parser.add_argument('--seed', type=int, default=0, help='random seed')
+parser.add_argument('--T_horizon', type=int, default=2048, help='lenth of long trajectory')
+parser.add_argument('--Distribution', type=str, default='Beta', help='Should be one of Beta ; GS_ms  ;  GS_m')
+parser.add_argument('--Max_train_steps', type=int, default=int(1e6), help='Max training steps')
+parser.add_argument('--save_interval', type=int, default=int(5e4), help='Model saving interval, in steps.')
+
+parser.add_argument('--gamma', type=float, default=0.99, help='Discounted Factor')
+parser.add_argument('--lambd', type=float, default=0.95, help='GAE Factor')
+parser.add_argument('--clip_rate', type=float, default=0.2, help='PPO Clip rate')
+parser.add_argument('--K_epochs', type=int, default=10, help='PPO update times')
+parser.add_argument('--net_width', type=int, default=150, help='Hidden net width')
+parser.add_argument('--a_lr', type=float, default=2e-4, help='Learning rate of actor')
+parser.add_argument('--c_lr', type=float, default=2e-4, help='Learning rate of critic')
+parser.add_argument('--l2_reg', type=float, default=1e-3, help='L2 regulization coefficient for Critic')
+parser.add_argument('--a_optim_batch_size', type=int, default=64, help='lenth of sliced trajectory of actor')
+parser.add_argument('--c_optim_batch_size', type=int, default=64, help='lenth of sliced trajectory of critic')
+parser.add_argument('--entropy_coef', type=float, default=1e-3, help='Entropy coefficient of Actor')
+parser.add_argument('--entropy_coef_decay', type=float, default=0.99, help='Decay rate of entropy_coef')
+opt = parser.parse_args()
+
+if not os.path.exists('model'): 
+    os.mkdir('model')
+if not os.path.exists('plots'): 
+    os.mkdir('plots')
 
 with open('config.yaml') as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 
-env = gym.make(config['game'])
-observation, info = env.reset()
-action_dim = env.action_space.shape[0]
-state_dim = env.observation_space.shape[0]
+env = gym.make('Pendulum-v1')
+opt.state_dim = env.observation_space.shape[0]
+opt.action_dim = env.action_space.shape[0]
+opt.max_action = float(env.action_space.high[0])
+opt.max_steps = env._max_episode_steps
 
-GAMMA = 0.99
-LR = 1e-4
-EPS = 0.2
-GPI_LOOP = 50
-EVALUATION_EPOCH = 5
-IMPROVEMENT_EPOCH = 2
-MEMORY_SIZE = 4096
-BATCH_SIZE = 8
-BOOTSTRAPPING = 256
+env_seed = opt.seed
+T.manual_seed(opt.seed)
+T.cuda.manual_seed(opt.seed)
+T.backends.cudnn.deterministic = True
+T.backends.cudnn.benchmark = False
 
-actor = ActorNetwork(action_dim, state_dim, LR)
-critic = CriticNetwork(state_dim, LR)
-memory = Memory(BATCH_SIZE)
-criterion = nn.MSELoss().to(critic.device)
+agent = Agent(**vars(opt)) # transfer opt to dictionary, and use it to init PPO_agent
+
 score_history = []
+traj_lenth= 0
+total_steps = 0
+episode = 0
+while total_steps < opt.Max_train_steps:
+    s, info = env.reset(seed=env_seed) # Do not use opt.seed directly, or it can overfit to opt.seed
+    env_seed += 1
+    done = False
+    score = 0
 
-def select_action(observation):
-    state = T.tensor(observation, dtype=T.float).to(actor.device)
-    alpha, beta, dist = actor(state)
-    action = dist.sample()
-    action = T.clamp(action, 0, 1)
-    probs_old = T.squeeze(dist.log_prob(action)).item()
-    return T.squeeze(action).item(), probs_old
+    '''Interact & trian'''
+    while not done:
+        '''Interact with Env'''
+        a, logprob_a = agent.stochastic_action(s) # use stochastic when training
+        act = Action_adapter(a,opt.max_action) #[0,1] to [-max,max]
+        s_next, r, dw, tr, info = env.step(act) # dw: dead&win; tr: truncated
+        done = (dw or tr)
+        score += r
+        
+        '''Store the current transition'''
+        agent.put_data(s, a, r, s_next, logprob_a, done, dw, idx = traj_lenth)
+        s = s_next
+        traj_lenth += 1
+        total_steps += 1
 
-for i in range(GPI_LOOP):
-    print('---------------------- GPI Loop ' + str(i+1) + ' :' + '----------------------')
+        '''Update if its time'''
+        if traj_lenth % opt.T_horizon == 0:
+            agent.train()
+            traj_lenth = 0
 
-    print('Generate trajectories...')
-    steps = 0
-    episode_num = 0
-    trajectories = []
-    loop_score = []
-    while steps < MEMORY_SIZE:
-        observation, info = env.reset()
-        trajectory = Trajectory()
-        done = False
-        score = 0
-        while not done:
-            action, probs_old = select_action(observation)
-            a = Action_adapter(action, 2)
-            observation_, reward, done, truncated, info  = env.step(a)
-            done = done or truncated
-            score += reward
-            trajectory.remember(observation, action, reward, observation_, done, probs_old)
-            observation = observation_
-        score_history.append(score)
-        loop_score.append(score)
-        steps += trajectory.length
-        episode_num += 1
-        trajectories.append(trajectory)
-    average_episode_score = sum(loop_score) / float(episode_num)
-    print("\tAverage episode score: %.1f" % average_episode_score)
+        '''Save model'''
+        if total_steps % opt.save_interval == 0:
+            agent.save_checkpoints()
+            print("Save Model")
 
-    print('Generate memory...')
-    memory.clear_memory()
-    for trajectory in trajectories:
-        for i in range(trajectory.length):
-            reward_sum = 0
-            value_bootstrapping = 0
-            discount = 1 / GAMMA
-            for j in range(BOOTSTRAPPING):
-                discount *= GAMMA
-                if i+j < trajectory.length:
-                    reward_sum += discount * trajectory.reward[i+j]
-            if i+BOOTSTRAPPING < trajectory.length:
-                if not trajectory.done[i+BOOTSTRAPPING]:
-                    state_bootstrapping = trajectory.states[i+BOOTSTRAPPING]
-                    state = T.tensor(state_bootstrapping, dtype=T.float).to(critic.device)
-                    value_bootstrapping = critic(state)
-                    value_bootstrapping = T.squeeze(value_bootstrapping).item()
-            returns = reward_sum + discount * GAMMA * value_bootstrapping
-            memory.store_memory(trajectory.states[i], trajectory.action[i], returns, trajectory.probs_old[i])
-
-    print('Evaluation...')
-    for epoch in tqdm(range(EVALUATION_EPOCH)):
-        state_arr, action_arr, returns_arr, probs_old_arr, batches = memory.generate_batches()
-        for batch in batches:
-            if len(batch) == BATCH_SIZE:
-                states = T.tensor(state_arr[batch], dtype=T.float).to(critic.device)
-                returns = T.tensor(returns_arr[batch], dtype=T.float).to(critic.device)
-                critic_value = critic(states)
-                critic_value = T.squeeze(critic_value) 
-                critic_loss = criterion(returns.view(BATCH_SIZE, 1), critic_value.view(BATCH_SIZE, 1)) 
-                critic.optimizer.zero_grad()
-                critic_loss.backward()
-                critic.optimizer.step()
-
-    print('Improvement...')
-    for epoch in tqdm(range(IMPROVEMENT_EPOCH)):
-        state_arr, action_arr, returns_arr, probs_old_arr, batches = memory.generate_batches()
-        for batch in batches:
-            if len(batch) == BATCH_SIZE:
-                states = T.tensor(state_arr[batch], dtype=T.float).to(actor.device)
-                actions = T.tensor(action_arr[batch], dtype=T.float).to(actor.device)
-                returns = T.tensor(returns_arr[batch], dtype=T.float).to(actor.device)
-                probs_old = T.tensor(probs_old_arr[batch], dtype=T.float).to(actor.device)
-                alpha, beta, dist = actor(states)
-                dist_entropy = dist.entropy()
-                probs = dist.log_prob(actions)
-                critic_value = critic(states)
-                critic_value = T.squeeze(critic_value)
-                advantage = returns - critic_value
-                prob_ratio = (probs - probs_old).exp()
-                weighted_probs = prob_ratio * advantage
-                weighted_clipped_probs = T.clamp(prob_ratio, 1-EPS, 1+EPS) * advantage
-                actor_loss = -T.min(weighted_probs, weighted_clipped_probs) - 1e-3*dist_entropy
-                actor_loss = actor_loss.mean()
-                actor.optimizer.zero_grad()
-                actor_loss.backward()
-                actor.optimizer.step()
-
-    actor.save_checkpoint()
-    critic.save_checkpoint()
+    score_history.append(score)
+    episode += 1
+    if episode % 100 == 0:
+        temp_score_history = score_history[(episode-10) : episode]
+        ave_score = sum(temp_score_history) / 10
+        print("Step " + str(total_steps) + ' of ' + str(opt.Max_train_steps) \
+               +' last 10 episode average score: ' + str(ave_score))
+    
 
 x = [i+1 for i in range(len(score_history))]
 plot_learning_curve(x, score_history, config['figure_path'])

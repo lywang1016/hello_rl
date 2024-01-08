@@ -2,8 +2,8 @@ import yaml
 import torch as T
 import torch.nn as nn
 import torch.optim as optim
-from torch.distributions import Beta,Normal
 import torch.nn.functional as F
+from torch.distributions import Beta, Normal
 
 class ActorNetwork(nn.Module):
     def __init__(self, action_dim, state_dim, alpha, fc1_dims=256, fc2_dims=256):
@@ -30,8 +30,12 @@ class ActorNetwork(nn.Module):
         x = self.actor(state)
         alpha = F.softplus(self.alpha_head(x)) + 1.0
         beta = F.softplus(self.beta_head(x)) + 1.0
+        return alpha, beta
+    
+    def get_dist(self, state):
+        alpha, beta = self.forward(state)
         dist = Beta(alpha, beta)
-        return alpha, beta, dist
+        return dist
 
     def save_checkpoint(self):
         T.save(self.state_dict(), self.checkpoint_file)
@@ -61,7 +65,6 @@ class CriticNetwork(nn.Module):
 
     def forward(self, state):
         value = self.critic(state)
-
         return value
 
     def save_checkpoint(self):
