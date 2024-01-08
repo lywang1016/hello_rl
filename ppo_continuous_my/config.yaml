@@ -1,0 +1,6 @@
+{
+    'game': 'Pendulum-v1',
+    'actor_model_path': 'model\actor.pth',
+    'critic_model_path': 'model\critic.pth',
+    'figure_path': 'plots\Pendulum.png'
+}
