@@ -12,7 +12,6 @@ from utils import plot_learning_curve, Action_adapter
 parser = argparse.ArgumentParser()
 parser.add_argument('--seed', type=int, default=0, help='random seed')
 parser.add_argument('--T_horizon', type=int, default=2048, help='lenth of long trajectory')
-parser.add_argument('--Distribution', type=str, default='Beta', help='Should be one of Beta ; GS_ms  ;  GS_m')
 parser.add_argument('--Max_train_steps', type=int, default=int(1e6), help='Max training steps')
 parser.add_argument('--save_interval', type=int, default=int(5e4), help='Model saving interval, in steps.')
 
@@ -20,7 +19,6 @@ parser.add_argument('--gamma', type=float, default=0.99, help='Discounted Factor
 parser.add_argument('--lambd', type=float, default=0.95, help='GAE Factor')
 parser.add_argument('--clip_rate', type=float, default=0.2, help='PPO Clip rate')
 parser.add_argument('--K_epochs', type=int, default=10, help='PPO update times')
-parser.add_argument('--net_width', type=int, default=150, help='Hidden net width')
 parser.add_argument('--a_lr', type=float, default=2e-4, help='Learning rate of actor')
 parser.add_argument('--c_lr', type=float, default=2e-4, help='Learning rate of critic')
 parser.add_argument('--l2_reg', type=float, default=1e-3, help='L2 regulization coefficient for Critic')
