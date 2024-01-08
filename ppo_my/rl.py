@@ -1,6 +1,5 @@
 import gymnasium as gym
 import yaml
-import numpy as np
 from tqdm import tqdm
 import torch as T
 from network import ActorNetwork, CriticNetwork
@@ -25,7 +24,6 @@ IMPROVEMENT_EPOCH = 2
 MEMORY_SIZE = 4096
 BATCH_SIZE = 8
 BOOTSTRAPPING = 256
-FAKESTATE = np.array([c for c in range(input_dims[0])])
 
 actor = ActorNetwork(n_actions, input_dims, LR)
 critic = CriticNetwork(input_dims, LR)
@@ -62,9 +60,7 @@ for i in range(GPI_LOOP):
             if life_time > 30000:
                 success_flag = True
                 break
-            if done:
-                observation_ = FAKESTATE
-            trajectory.remember(observation, action, reward, observation_, probs_old)
+            trajectory.remember(observation, action, reward, observation_, done, probs_old)
             observation = observation_
         score_history.append(score)
         steps += trajectory.length
@@ -88,8 +84,8 @@ for i in range(GPI_LOOP):
                 if i+j < trajectory.length:
                     reward_sum += discount * trajectory.reward[i+j]
             if i+BOOTSTRAPPING < trajectory.length:
-                state_bootstrapping = trajectory.states[i+BOOTSTRAPPING]
-                if not (state_bootstrapping == FAKESTATE).all():
+                if not trajectory.done[i+BOOTSTRAPPING]:
+                    state_bootstrapping = trajectory.states[i+BOOTSTRAPPING]
                     state = T.tensor(state_bootstrapping, dtype=T.float).to(critic.device)
                     value_bootstrapping = critic(state)
                     value_bootstrapping = T.squeeze(value_bootstrapping).item()

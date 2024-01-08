@@ -6,15 +6,17 @@ class Trajectory():
         self.action = []
         self.reward = []
         self.next_states = []
+        self.done = []
         self.probs_old = []
         self.length = 0
 
-    def remember(self, states, action, reward, next_states, probs_old):
+    def remember(self, states, action, reward, next_states, done, probs_old):
         self.length += 1
         self.states.append(states)
         self.action.append(action)
         self.reward.append(reward)
         self.next_states.append(next_states)
+        self.done.append(done)
         self.probs_old.append(probs_old)
 
 class Memory:
