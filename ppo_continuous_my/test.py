@@ -20,7 +20,6 @@ while not done:
         alpha, beta = actor(state)
     mode = (alpha) / (alpha + beta)
     action = Action_adapter(mode.cpu().numpy()[0], max_action)
-    print(action)
     obs, reward, done, truncated, info = env.step(action)
     done = done or truncated
     
