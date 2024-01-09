@@ -44,6 +44,14 @@ class Agent(object):
         self.actor.save_checkpoint()
         self.critic.save_checkpoint()
 
+    def load_best(self):
+        self.actor.load_best()
+        self.critic.load_best()
+
+    def save_best(self):
+        self.actor.save_best()
+        self.critic.save_best()
+
     def train(self):
         self.entropy_coef*=self.entropy_coef_decay
 

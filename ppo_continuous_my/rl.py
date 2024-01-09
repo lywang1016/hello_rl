@@ -12,7 +12,7 @@ from utils import plot_learning_curve, Action_adapter
 parser = argparse.ArgumentParser()
 parser.add_argument('--seed', type=int, default=0, help='random seed')
 parser.add_argument('--T_horizon', type=int, default=2048, help='lenth of long trajectory')
-parser.add_argument('--Max_train_steps', type=int, default=int(1e6), help='Max training steps')
+parser.add_argument('--Max_train_steps', type=int, default=int(5e5), help='Max training steps')
 parser.add_argument('--save_interval', type=int, default=int(5e4), help='Model saving interval, in steps.')
 
 parser.add_argument('--gamma', type=float, default=0.99, help='Discounted Factor')
@@ -54,6 +54,7 @@ score_history = []
 traj_lenth= 0
 total_steps = 0
 episode = 0
+best_score = -10000
 while total_steps < opt.Max_train_steps:
     s, info = env.reset(seed=env_seed) # Do not use opt.seed directly, or it can overfit to opt.seed
     env_seed += 1
@@ -83,7 +84,7 @@ while total_steps < opt.Max_train_steps:
         '''Save model'''
         if total_steps % opt.save_interval == 0:
             agent.save_checkpoints()
-            print("Save Model")
+            print("Save Checkpoints Model")
 
     score_history.append(score)
     episode += 1
@@ -92,6 +93,10 @@ while total_steps < opt.Max_train_steps:
         ave_score = sum(temp_score_history) / 10
         print("Step " + str(total_steps) + ' of ' + str(opt.Max_train_steps) \
                +' last 10 episode average score: ' + str(ave_score))
+        if ave_score > best_score:
+            best_score = ave_score
+            agent.save_best()
+            print("Save Best Model")
     
 
 x = [i+1 for i in range(len(score_history))]

@@ -1,4 +1,4 @@
-import yaml
+import os
 import torch as T
 import torch.nn as nn
 import torch.optim as optim
@@ -6,23 +6,22 @@ import torch.nn.functional as F
 from torch.distributions import Beta, Normal
 
 class ActorNetwork(nn.Module):
-    def __init__(self, action_dim, state_dim, alpha, fc1_dims=256, fc2_dims=256):
+    def __init__(self, action_dim, state_dim, a_lr):
         super(ActorNetwork, self).__init__()
 
-        with open('config.yaml') as f:
-            config = yaml.load(f, Loader=yaml.FullLoader)
+        self.checkpoint_file = os.path.join(os.getcwd(), 'model', 'actor_checkpoint.pth')
+        self.best_file = os.path.join(os.getcwd(), 'model', 'actor_best.pth')
 
-        self.checkpoint_file = config['actor_model_path']
         self.actor = nn.Sequential(
-                nn.Linear(state_dim, fc1_dims),
+                nn.Linear(state_dim, 256),
                 nn.ReLU(),
-                nn.Linear(fc1_dims, fc2_dims),
+                nn.Linear(256, 256),
                 nn.ReLU(),
         )
-        self.alpha_head = nn.Linear(fc2_dims, action_dim)
-        self.beta_head = nn.Linear(fc2_dims, action_dim)
+        self.alpha_head = nn.Linear(256, action_dim)
+        self.beta_head = nn.Linear(256, action_dim)
 
-        self.optimizer = optim.Adam(self.parameters(), lr=alpha)
+        self.optimizer = optim.Adam(self.parameters(), lr=a_lr)
         self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
         self.to(self.device)
 
@@ -43,23 +42,28 @@ class ActorNetwork(nn.Module):
     def load_checkpoint(self):
         self.load_state_dict(T.load(self.checkpoint_file))
 
+    def save_best(self):
+        T.save(self.state_dict(), self.best_file)
+
+    def load_best(self):
+        self.load_state_dict(T.load(self.best_file))
+
 class CriticNetwork(nn.Module):
-    def __init__(self, input_dims, alpha, fc1_dims=256, fc2_dims=256):
+    def __init__(self, input_dims, c_lr):
         super(CriticNetwork, self).__init__()
 
-        with open('config.yaml') as f:
-            config = yaml.load(f, Loader=yaml.FullLoader)
+        self.checkpoint_file = os.path.join(os.getcwd(), 'model', 'critic_checkpoint.pth')
+        self.best_file = os.path.join(os.getcwd(), 'model', 'critic_best.pth')
 
-        self.checkpoint_file = config['critic_model_path']
         self.critic = nn.Sequential(
-                nn.Linear(input_dims, fc1_dims),
+                nn.Linear(input_dims, 256),
                 nn.ReLU(),
-                nn.Linear(fc1_dims, fc2_dims),
+                nn.Linear(256, 256),
                 nn.ReLU(),
-                nn.Linear(fc2_dims, 1)
+                nn.Linear(256, 1)
         )
 
-        self.optimizer = optim.Adam(self.parameters(), lr=alpha)
+        self.optimizer = optim.Adam(self.parameters(), lr=c_lr)
         self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
         self.to(self.device)
 
@@ -72,3 +76,9 @@ class CriticNetwork(nn.Module):
 
     def load_checkpoint(self):
         self.load_state_dict(T.load(self.checkpoint_file))
+
+    def save_best(self):
+        T.save(self.state_dict(), self.best_file)
+
+    def load_best(self):
+        self.load_state_dict(T.load(self.best_file))
