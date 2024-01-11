@@ -35,6 +35,11 @@ class ActorNetwork(nn.Module):
         alpha, beta = self.forward(state)
         dist = Beta(alpha, beta)
         return dist
+    
+    def deterministic_act(self, state):
+        alpha, beta = self.forward(state)
+        mode = (alpha) / (alpha + beta)
+        return mode
 
     def save_checkpoint(self):
         T.save(self.state_dict(), self.checkpoint_file)

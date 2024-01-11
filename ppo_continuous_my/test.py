@@ -4,6 +4,7 @@ import torch as T
 from utils import Action_adapter
 
 env = gym.make('Pendulum-v1', render_mode="human")
+# env = gym.make('LunarLanderContinuous-v2', render_mode="human")
 env._max_episode_steps = 200
 
 action_dim = env.action_space.shape[0]
@@ -17,9 +18,8 @@ done = False
 while not done:
     with T.no_grad():
         state = T.tensor(obs.reshape(1, -1), dtype=T.float).to(actor.device)
-        alpha, beta = actor(state)
-    mode = (alpha) / (alpha + beta)
-    action = Action_adapter(mode.cpu().numpy()[0], max_action)
+        action = actor.deterministic_act(state).cpu().numpy()[0]
+        action = Action_adapter(action, max_action)
     obs, reward, done, truncated, info = env.step(action)
     done = done or truncated
     

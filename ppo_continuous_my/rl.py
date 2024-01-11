@@ -2,9 +2,7 @@ import gymnasium as gym
 import yaml
 import argparse
 import os
-from tqdm import tqdm
 import torch as T
-import torch.nn as nn
 from agent import Agent
 from utils import plot_learning_curve, Action_adapter
 
@@ -33,10 +31,8 @@ if not os.path.exists('model'):
 if not os.path.exists('plots'): 
     os.mkdir('plots')
 
-with open('config.yaml') as f:
-    config = yaml.load(f, Loader=yaml.FullLoader)
-
 env = gym.make('Pendulum-v1')
+# env = gym.make('LunarLanderContinuous-v2')
 opt.state_dim = env.observation_space.shape[0]
 opt.action_dim = env.action_space.shape[0]
 opt.max_action = float(env.action_space.high[0])
@@ -100,4 +96,4 @@ while total_steps < opt.Max_train_steps:
     
 
 x = [i+1 for i in range(len(score_history))]
-plot_learning_curve(x, score_history, config['figure_path'])
+plot_learning_curve(x, score_history, 'plots\Score.png')
